@@ -125,7 +125,8 @@ canvas#c{position:fixed;inset:0;display:block}
 @keyframes r1g{50%{box-shadow:0 0 26px rgba(255,210,63,.8),inset 0 0 18px rgba(255,235,150,.35)}}
 .trw.r2{border-color:#cfd8e3;background:linear-gradient(90deg,rgba(207,216,227,.2),rgba(207,216,227,.05))}
 .trw.r3{border-color:#c8803c;background:linear-gradient(90deg,rgba(200,128,60,.24),rgba(200,128,60,.05))}
-.trw.me{outline:2px solid var(--cy);outline-offset:1px}
+.trw.me{outline:2px solid #6ff2ff;outline-offset:1px;animation:meg 1.4s ease-in-out infinite}
+@keyframes meg{50%{box-shadow:0 0 22px rgba(111,242,255,.85),inset 0 0 14px rgba(111,242,255,.35)}}
 .crown{font-size:28px;line-height:1;display:inline-block;animation:crw 1.4s ease-in-out infinite;filter:drop-shadow(0 0 8px #ffd23f)}
 @keyframes crw{50%{transform:translateY(-3px) rotate(-7deg) scale(1.12)}}
 .bdg{width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:18px}
@@ -134,6 +135,9 @@ canvas#c{position:fixed;inset:0;display:block}
 .tfoot{margin-top:10px;font-weight:800;color:#ffe9a8;text-align:center}
 .tfoot.sm{font-size:11px;opacity:.7;font-weight:700;margin-top:6px}
 @media (max-width:640px){.trw{grid-template-columns:38px 1fr 38px 56px 30px;padding:6px 7px;gap:4px;font-size:12px}}
+.pinl{font-weight:800;font-size:12px;opacity:.75;margin:10px 0 4px}
+.cgrid.pin{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.pinb{border-color:var(--yl);box-shadow:0 0 14px rgba(255,210,63,.45)}
 </style>
 </head>
 <body>
@@ -726,7 +730,7 @@ function checkDone(){
  if(carsLeft===0&&1-R.snowLeft/R.roadCells>=city.goal){
   R.done=true;const bonus=Math.round(500*earnMul()*(1+city.i*.15)),jack=city.boss&&!R.bossFail?Math.round(3000*city.mult*(1+city.i*.12)):0;S.money+=bonus+jack;R.earned+=bonus+jack;S.tot=(S.tot||0)+(bonus+jack);R.jack=jack;mis('city',1);if(jack&&S.bw.indexOf(city.i)<0)S.bw.push(city.i);
   if(jack){banner(TX().bossWin,3000);for(let q=0;q<6;q++)setTimeout(()=>confetti(T.x+(rnd()-.5)*300,T.y+(rnd()-.5)*200,40),q*120)}
-  if(city.i+1>S.maxCity&&city.i<NC-1)S.maxCity=city.i+1;save();sChime();tourSubmit(true);
+  if(city.i+1>S.maxCity&&city.i<NC-1)S.maxCity=city.i+1;save();sChime();tourSubmit();
   setTimeout(()=>showDone(bonus),700);
  }
 }
@@ -978,9 +982,13 @@ function openShop(){
 }
 function openCities(){
  const t=TX();$('pCity').setAttribute('dir',S.lang==='ar'?'rtl':'ltr');
- let h=`<button class="x" id="ctX">${t.close}</button><h2>${t.cities}</h2><div class="dmsg">🔓 ${NC} · ⏳ ${tt().unlockIn} ${hms(nextUnlockMs())}</div><div class="cgrid">`;
+ let h=`<button class="x" id="ctX">${t.close}</button><h2>${t.cities}</h2><div class="dmsg">🔓 ${NC} · ⏳ ${tt().unlockIn} ${hms(nextUnlockMs())}</div><div class="cgrid pin">`;
+ {const ar=S.lang==='ar',f=Math.min(S.maxCity|0,NC-1),pc=i=>`<button class="cb cur pinb" data-c="${i}"><b>${i+1}</b>${(i+1)%10===0?'👑 ':''}${CN[i][ar?1:0]}<small>x${cmult(i).toFixed(1)}</small></button>`;
+  h+=`<div class="pinl">${ar?'مدينتك الحالية':'Your current city'}</div>`+pc(Math.min(S.city|0,NC-1));
+  if(f!==(S.city|0))h+=`<div class="pinl">${ar?'آخر مدينة مفتوحة':'Latest unlocked'}</div>`+pc(f);}
+ h+=`</div><div class="pinl">${ar?'كل المدن (من 1)':'All cities (from 1)'}</div><div class="cgrid">`;
  for(let i=0;i<NC;i++){const lock=i>S.maxCity;h+=`<button class="cb ${i===S.city?'cur':''} ${lock?'lock':''}" data-c="${i}" ${lock?'disabled':''}><b>${lock?'🔒':i+1}</b>${(i+1)%10===0?'👑 ':''}${CN[i][S.lang==='ar'?1:0]}<small>x${cmult(i).toFixed(1)}</small></button>`}
- h+='</div>';$('pCity').innerHTML=h;openModal('mCity');const cu=$('pCity').querySelector('.cur');if(cu)cu.scrollIntoView({block:'center'});
+ h+='</div>';$('pCity').innerHTML=h;openModal('mCity');$('pCity').scrollTop=0;
 }
 $('pShop').addEventListener('click',e=>{
  if(e.target.id==='shX'){closeModals();return}
@@ -1008,98 +1016,84 @@ $('bLang').onclick=()=>{S.lang=S.lang==='ar'?'en':'ar';save();renderStatic();sCl
 $('bSnd').onclick=()=>{S.sound=!S.sound;if(AU.m)AU.m.gain.value=S.sound?.55:0;renderStatic();save();auInit()};
 $('bFreeze').addEventListener('pointerdown',e=>{e.preventDefault();useFreeze()});
 
-/* ================= tournament (TOP 10 SNOW CRUSHERS) ================= */
+/* ================= tournament (TOP 10 SNOW CRUSHERS) - live simulated rivals, no server needed ================= */
 const TT={
-en:{title:'TOP 10 SNOW CRUSHERS',sub:'Global tournament · only the best stay on top',you:'You',score:'Score',ph:'Choose your unique name',save:'Save',player:'Player',cit:'Cities',
- taken:'This name is already taken, choose another name.',bad:'Name: 3–16 letters, numbers, spaces or _',fail:'Could not save the name, try again.',offlineName:'Server offline — connect to choose a name.',
- offline:'Server not connected — showing your local score only.',loading:'Loading…',empty:'Open spot',yourRank:'Your rank',need:'You need',pts:'more points to enter the Top 10',
+en:{title:'TOP 10 SNOW CRUSHERS',sub:'Global tournament · only the best stay on top',you:'You',score:'Score',ph:'Enter unique name',save:'Save',player:'Player',cit:'Cities',
+ taken:'This name is already taken, choose another name.',bad:'Name: 3–16 letters, numbers, spaces or _',yourRank:'Your rank',need:'You need',pts:'more points to enter the Top 10',
  inTop:'YOU ARE IN THE TOP 10! 🏆',unlockIn:'Next 50 cities in',newCities:n=>`+${n} NEW CITIES UNLOCKED!`,how:'Score = cities×1000 + bosses×2500 + combos×25 + money bonus',nameHint:'Pick a name to claim your spot'},
-ar:{title:'أقوى 10 كاسحي ثلج',sub:'بطولة عالمية · الأفضل فقط يبقى في القمة',you:'أنت',score:'النقاط',ph:'اختر اسمك الفريد',save:'حفظ',player:'اللاعب',cit:'المدن',
- taken:'هذا الاسم مأخوذ بالفعل، اختر اسمًا آخر.',bad:'الاسم من 3 إلى 16 حرفًا أو رقمًا أو مسافة أو _',fail:'تعذر حفظ الاسم، حاول مرة أخرى.',offlineName:'السيرفر غير متصل — اتصل لتختار اسمًا.',
- offline:'السيرفر غير متصل — يظهر ترتيبك المحلي فقط.',loading:'جارٍ التحميل…',empty:'مكان شاغر',yourRank:'ترتيبك',need:'تحتاج',pts:'نقطة إضافية لدخول أفضل 10',
+ar:{title:'أقوى 10 كاسحي ثلج',sub:'بطولة عالمية · الأفضل فقط يبقى في القمة',you:'أنت',score:'النقاط',ph:'اكتب اسمًا فريدًا',save:'حفظ',player:'اللاعب',cit:'المدن',
+ taken:'هذا الاسم مأخوذ بالفعل، اختر اسمًا آخر.',bad:'الاسم من 3 إلى 16 حرفًا أو رقمًا أو مسافة أو _',yourRank:'ترتيبك',need:'تحتاج',pts:'نقطة إضافية لدخول أفضل 10',
  inTop:'أنت في قائمة أفضل 10! 🏆',unlockIn:'50 مدينة جديدة بعد',newCities:n=>`تم فتح ${n} مدينة جديدة!`,how:'النقاط = المدن×1000 + الزعماء×2500 + الكومبو×25 + مكافأة الفلوس',nameHint:'اختر اسمًا لتثبيت مكانك'}};
 const tt=()=>TT[S.lang]||TT.en;
 const hms=ms=>{const s=Math.max(0,Math.floor(ms/1000));return String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor(s%3600/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const NAME_RE=/^[\p{L}\p{N}_ ]{3,16}$/u;
+const nkey=n=>String(n).normalize('NFKC').toLowerCase().replace(/[\s_]+/g,'');
 const scoreOf=s=>s.cities*1000+s.bosses*2500+s.combos*25+Math.floor(Math.sqrt(s.money)*5);
 const myStats=()=>({cities:S.maxCity|0,money:Math.floor(S.tot||0),bosses:(S.bw||[]).length,combos:S.combos|0});
-function ensureId(){
- if(!S.tok){const a=new Uint8Array(16);if(window.crypto&&crypto.getRandomValues)crypto.getRandomValues(a);else for(let i=0;i<16;i++)a[i]=rnd()*256;S.tok=Array.from(a,b=>b.toString(16).padStart(2,'0')).join('')}
- if(!S.pn)S.pn='Player_'+(1000+Math.floor(rnd()*9000));
+function ensureId(){if(!S.pn)S.pn='Player_'+(1000+Math.floor(rnd()*9000))}
+/* rivals: [name, cities, money, bosses, combos, cities/day, money growth/day, combos/day] measured at launch day, grow every day (and smoothly during the day) */
+const RIV=[
+ ['FrostKing',84,38e6,8,640,1.6,.035,9],['ArcticWolf',76,24e6,7,540,1.5,.04,8],['SnowMaster99',69,15e6,6,470,1.4,.04,8],
+ ['IceBreaker_X',61,9e6,6,400,1.3,.045,7],['PolarPro',53,5.2e6,5,330,1.2,.045,6],['BlizzardAce',45,2.6e6,4,270,1.1,.05,6],
+ ['Yuki_JP',38,1.2e6,3,210,1,.05,5],['NordPlow',31,5.5e5,3,160,.9,.055,4],['GlacierHero',25,2.4e5,2,110,.8,.055,3],['WinterVibe',18,9e4,1,60,.7,.06,2]];
+const RIVKEYS=new Set(RIV.map(r=>nkey(r[0])));
+let TB={top:[],rank:0,cut:0,qual:false},pendingPrompt=false,said=false,tsN=0;
+function computeBoard(){
+ ensureId();
+ const f=Math.max(0,(srvNow()-LAUNCH)/864e5),st=myStats(),sc=scoreOf(st);
+ const all=RIV.map(r=>{
+  const cities=Math.min(NC,Math.floor(r[1]+r[5]*f)),o={name:r[0],cities,money:Math.floor(r[2]*Math.pow(1+r[6],f)),bosses:Math.min(Math.floor(cities/10),r[3]+Math.floor(f/3)),combos:Math.floor(r[4]+r[7]*f)};
+  o.score=scoreOf(o);return o});
+ all.push({name:S.pn,cities:st.cities,money:st.money,bosses:st.bosses,combos:st.combos,score:sc,me:true});
+ all.sort((a,b)=>b.score-a.score||(a.me?1:b.me?-1:0));
+ const idx=all.findIndex(x=>x.me);
+ TB.top=all.slice(0,10);TB.rank=idx+1;TB.cut=all[9].score;TB.qual=TB.rank<=10;
 }
-const API=(typeof window.SNOW_API==='string')?window.SNOW_API:'';
-async function api(path,body){
- const c=new AbortController(),to=setTimeout(()=>c.abort(),4500);
- try{const r=await fetch(API+path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,signal:c.signal});return await r.json()}
- catch(e){return null}finally{clearTimeout(to)}
-}
-let TB={top:[],rank:0,cut:0,online:false,qual:false},lastSent='',pendingPrompt=false,said=false,tsN=0;
-async function tourSubmit(force){
- ensureId();const st=myStats(),key=JSON.stringify(st)+S.pn;
- if(!force&&key===lastSent&&TB.online)return;
- const r=await api('/api/score',{token:S.tok,name:S.pn,stats:st});
- if(!r){TB.online=false;return null}
- if(!r.ok)return r;
- TB.online=true;lastSent=key;TB.top=r.top||[];TB.rank=r.rank|0;TB.cut=r.cut|0;TB.qual=TB.rank>0&&TB.rank<=10;
- if(r.name&&r.name!==S.pn){S.pn=r.name;save()}
- if(r.named&&!S.pnSet){S.pnSet=true;save()}
+function tourSubmit(){
+ computeBoard();
  const need=TB.qual&&!S.pnSet;
  $('bTrophy').classList.toggle('alert',need);
  if(need&&!S.pAsk){pendingPrompt=true;if(!said){said=true;banner(tt().inTop,3000)}}
- return r;
 }
-function renderTour(loading){
- const t=tt(),st=myStats(),sc=scoreOf(st);
+function renderTour(){
+ const t=tt(),sc=scoreOf(myStats());
  let h=`<button class="x" id="tnX">${TX().close}</button><h2 class="tH">🏆 ${t.title}</h2><div class="m2 tsub">${t.sub}</div>`;
- h+=`<div class="tme"><span>${t.you}: <b>${esc(S.pn)}</b></span><span>${t.score}: <b>${fmt(sc)}</b>${TB.online&&TB.rank?' · #'+TB.rank:''}</span></div>`;
+ h+=`<div class="tme"><span>${t.you}: <b>${esc(S.pn)}</b></span><span>${t.score}: <b>${fmt(sc)}</b> · #${TB.rank}</span></div>`;
  if(!S.pnSet)h+=`<div class="tname"><input id="tnIn" maxlength="16" placeholder="${t.ph}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn" id="tnSave">${t.save}</button></div><div class="terr" id="tnErr">${TB.qual?t.nameHint:''}</div>`;
- if(!TB.online)h+=`<div class="dmsg">${loading?t.loading:t.offline}</div>`;
- const rows=TB.online?TB.top.slice(0,10):[{name:S.pn,cities:st.cities,money:st.money,bosses:st.bosses,me:true,local:true}];
  h+=`<div class="trw hd"><span>#</span><span>${t.player}</span><span>${t.cit}</span><span>$</span><span>👑</span></div>`;
- const n=TB.online?10:1;
- for(let i=0;i<n;i++){
-  const e=rows[i];
-  const bd=rows[i]&&rows[i].local?'—':i===0?'<span class="crown">👑</span>':i===1?'<span class="bdg sv">🥈</span>':i===2?'<span class="bdg bz">🥉</span>':`<span class="rk">${i+1}</span>`;
-  if(!e){h+=`<div class="trw emp"><span>${i+1}</span><span class="nm">${t.empty}</span><span>-</span><span>-</span><span>-</span></div>`;continue}
-  h+=`<div class="trw ${!e.local&&i<3?'r'+(i+1):''} ${e.me?'me':''}"><span class="bc">${bd}</span><span class="nm">${esc(e.name)}</span><span>${e.cities}</span><span>${fmt(e.money)}</span><span>${e.bosses}</span></div>`;
- }
- if(TB.online&&TB.rank>10)h+=`<div class="tfoot">${t.yourRank} #${TB.rank} · ${t.need} ${fmt(Math.max(1,TB.cut-sc+1))} ${t.pts}</div>`;
+ TB.top.forEach((e,i)=>{
+  const bd=i===0?'<span class="crown">👑</span>':i===1?'<span class="bdg sv">🥈</span>':i===2?'<span class="bdg bz">🥉</span>':`<span class="rk">${i+1}</span>`;
+  h+=`<div class="trw ${i<3?'r'+(i+1):''} ${e.me?'me':''}"><span class="bc">${bd}</span><span class="nm">${esc(e.name)}</span><span>${e.cities}</span><span>${fmt(e.money)}</span><span>${e.bosses}</span></div>`;
+ });
+ if(TB.rank>10)h+=`<div class="tfoot">${t.yourRank} #${TB.rank} · ${t.need} ${fmt(Math.max(1,TB.cut-sc+1))} ${t.pts}</div>`;
  h+=`<div class="tfoot sm">${t.how}</div><div class="tfoot sm">⏳ ${t.unlockIn} ${hms(nextUnlockMs())} · 🏙 ${NC}</div>`;
  $('pTour').innerHTML=h;
 }
-async function openTour(){
- ensureId();$('pTour').setAttribute('dir',S.lang==='ar'?'rtl':'ltr');
- renderTour(true);openModal('mTour');
- await tourSubmit(true);
- if($('mTour').classList.contains('open')){const v=$('tnIn')?$('tnIn').value:'';renderTour(false);if(v&&$('tnIn'))$('tnIn').value=v}
+function openTour(){
+ $('pTour').setAttribute('dir',S.lang==='ar'?'rtl':'ltr');
+ computeBoard();renderTour();openModal('mTour');
 }
-$('pTour').addEventListener('click',async e=>{
+$('pTour').addEventListener('click',e=>{
  if(e.target.id==='tnX'){closeModals();return}
  if(e.target.id!=='tnSave')return;
- const btn=e.target,er=$('tnErr'),v=$('tnIn').value.trim().replace(/\s+/g,' ');er.textContent='';
- if(!NAME_RE.test(v)){er.textContent=tt().bad;return}
- btn.disabled=true;ensureId();
- const r=await api('/api/name',{token:S.tok,name:v});
- btn.disabled=false;
- if(!r){er.textContent=tt().offlineName;return}
- if(!r.ok){er.textContent=r.error==='taken'?tt().taken:r.error==='invalid'?tt().bad:tt().fail;return}
- S.pn=r.name;S.pnSet=true;S.pAsk=true;save();sBuy();$('bTrophy').classList.remove('alert');
- await tourSubmit(true);renderTour(false);
+ const er=$('tnErr'),v=$('tnIn').value.trim().replace(/\s+/g,' ');er.textContent='';
+ if(!NAME_RE.test(v)||/^player_\d+$/i.test(v)){er.textContent=tt().bad;return}
+ if(RIVKEYS.has(nkey(v))){er.textContent=tt().taken;return}
+ S.pn=v;S.pnSet=true;S.pAsk=true;save();sBuy();$('bTrophy').classList.remove('alert');
+ computeBoard();renderTour();
 });
 $('pTour').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='tnIn'){e.preventDefault();$('tnSave').click()}});
 $('bTrophy').onclick=()=>{sClick();openTour()};
 function tickTour(){
  const o=NC;refreshUnlock();
  if(NC>o){S.lu=NC;save();banner(tt().newCities(NC-o),3500);renderStatic()}
- tourSubmit(false);
+ tourSubmit();
 }
-async function tourBoot(){
- const r=await api('/api/state');
- if(r&&r.ok){SRV.ok=true;SRV.off=r.now-Date.now();if(r.launch)LAUNCH=r.launch;refreshUnlock();
-  if(S.lu&&NC>S.lu)banner(tt().newCities(NC-S.lu),3500);S.lu=NC;save();renderStatic();updateHud()}
- else if(!S.lu){S.lu=NC}
- if(r)tourSubmit(false);
+function tourBoot(){
+ refreshUnlock();
+ if(S.lu&&NC>S.lu)banner(tt().newCities(NC-S.lu),3500);
+ S.lu=NC;save();renderStatic();updateHud();tourSubmit();
 }
 
 /* ================= input ================= */
